@@ -1,0 +1,175 @@
+{
+	doc_url: "https://coop.obyte.org/governance.json",
+	init: `{
+
+		$year = 31536000; // 365 * 24 * 3600;
+		$challenging_period = params.challenging_period OTHERWISE 3*24*3600; // 3 days
+
+		$coop_aa = params.coop_aa;
+		require($coop_aa, "no coop_aa");
+
+		$names = [
+			'daily_locked_reward',
+			'daily_liquid_reward',
+			'by_votes_share',
+			'messaging_attestors',
+			'real_name_attestors',
+			'referrer_deposit_reward_share',
+			'referral_reward',
+			'min_balance_instead_of_real_name',
+		];
+		$count_names = 8;
+		require(length($names) == $count_names, "wrong number of governable parameters");
+		
+		$is_allowed_name = $name => {
+			length(filter($names, $count_names, $n => $n == $name)) == 1
+		};
+
+		$get_sqrt_balance = ($address, $bThrow) => {
+			$user = var[$coop_aa]['user_'||$address];
+			require($user, "you are not a user here");
+
+			$min_unlock_date = timestamp_to_string(timestamp + $year, 'date');
+			if ($user.unlock_date < $min_unlock_date){
+				if ($bThrow)
+					bounce("your unlock date must be "||$min_unlock_date||" or later");
+				return 0;
+			}
+			
+			$balance = $user.total_balance;
+			if (!$balance){
+				if ($bThrow)
+					bounce("you have no locked balance and cannot vote");
+				return 0;
+			}
+
+			sqrt($balance)
+		};
+
+		$get_value_key = $value => $value;
+
+	}`,
+	messages: {
+		cases: [
+
+			// commit new value after the challenging period expires
+			{
+				if: `{ trigger.data.name AND trigger.data.commit }`,
+				init: `{
+					$name = trigger.data.name;
+					$leader = var['leader_' || $name];
+					require(exists($leader), "no leader"); // can be 0
+					$current_value = var[$name];
+					if (exists($current_value) AND $leader == $current_value)
+						bounce("already equal to leader");
+					require(var['challenging_period_start_ts_' || $name] + $challenging_period < timestamp, "challenging period not expired yet");
+					$payload = {
+						name: $name,
+						value: $leader,
+					};
+				}`,
+				messages: [
+					// ping the coop_aa to record the new value
+					{
+						app: 'payment',
+						payload: {
+							asset: 'base',
+							outputs: [
+								{address: "{$coop_aa}", amount: 5000}
+							]
+						}
+					},
+					{
+						app: 'data',
+						payload: "{$payload}"
+					},
+					{
+						app: 'state',
+						state: `{
+							var[$name] = $leader;
+						}`
+					}
+				]
+			},
+
+
+			// add support to a value
+			{ 
+				if: `{ trigger.data.name }`,
+				init: `{
+					$name = trigger.data.name;
+					$value = trigger.data.value; // can be empty to remove one's vote
+					require($is_allowed_name($name), "unknown name: " || $name);
+
+					$sqrt_balance = $get_sqrt_balance(trigger.address, true);
+
+					if (exists($value)){
+						if ($name == 'messaging_attestors' OR $name == 'real_name_attestors'){
+							require(typeof($value) == 'string', "must be a string");
+							$arr = split($value, ':');
+							require(length($arr) > 0, "no attestors");
+							foreach($arr, 5, $addr => { require(is_valid_address($addr), "invalid attestor address"); });
+						}
+						else{
+							require(typeof($value) == 'number' AND $value >= 0, "must be a nonnegative number");
+							if ($name == 'referral_reward' OR $name == 'min_balance_instead_of_real_name')
+								require(is_integer($value), "value must be integer");
+							else
+								require($value <= 1, "value must be <= 1");
+						}
+					}
+				}`,
+				messages: [
+					{
+						app: 'state',
+						state: `{
+							$votes = var['votes_'||trigger.address] OTHERWISE {};
+							$prev_choice = $votes[$name];
+							$leader = var['leader_' || $name];
+							var['choice_' || trigger.address || '_' || $name] = $value;
+							if (exists($prev_choice)){
+								$prev_choice_key = $get_value_key($prev_choice.value);
+								var['support_' || $name || '_' || $prev_choice_key] -= $prev_choice.sqrt_balance;
+								delete($votes, $name);
+							}
+							if (exists($value)){
+								$value_key = $get_value_key($value);
+								var['support_' || $name || '_' || $value_key] += $sqrt_balance;
+								$votes[$name] = { value: $value, sqrt_balance: $sqrt_balance };
+								if (!exists($leader) OR var['support_' || $name || '_' || $value_key] > var['support_' || $name || '_' || $get_value_key($leader)]){
+									var['leader_' || $name] = $value;
+									var['challenging_period_start_ts_' || $name] = timestamp;
+								}
+							}
+							var['votes_'||trigger.address] = $votes;
+						}`
+					}
+				]
+			},
+
+
+			// update user balance to account for users who withdraw or fail to extend their unlock date
+			{
+				if: `{ trigger.data.update_user_balance AND trigger.data.address }`,
+				messages: [
+					{
+						app: 'state',
+						state: `{
+							$votes = var['votes_'||trigger.data.address];
+							if (!$votes) return;
+							$sqrt_balance = $get_sqrt_balance(trigger.data.address, false);
+							foreach($votes, $count_names, ($name, $vote) => {
+								$value_key = $get_value_key($vote.value);
+								var['support_' || $name || '_' || $value_key] += $sqrt_balance - $vote.sqrt_balance;
+								$votes[$name].sqrt_balance = $sqrt_balance;
+							});
+							var['votes_'||trigger.data.address] = $votes;
+						}`
+					}
+				]
+			},
+
+
+		]
+	}
+}

@@ -1,0 +1,493 @@
+
+{
+	doc_url: "https://coop.obyte.org/coop.json",
+	getters: `{
+
+		/* nonce: 572519 */
+
+		$year = 31536000; // 365 * 24 * 3600;
+
+		$get_variables = () => {
+			var['variables'] OTHERWISE {
+				daily_locked_reward: 0.01,
+				daily_liquid_reward: 0.001,
+				by_votes_share: 0.5,
+				messaging_attestors: '',
+				real_name_attestors: '',
+				referrer_deposit_reward_share: 0.01,
+				referral_reward: 10e9,
+				min_balance_instead_of_real_name: 500e9,
+			}
+		};
+
+
+		$get_ceiling_price = () => {
+			$constants = var['constants'];
+			2^((timestamp - $constants.launch_ts)/$year)
+		};
+
+
+
+	}`,
+	init: `{
+		
+		$vote_lifetime = 90 * 24 * 3600; // 90 days
+
+		$constants = var['constants'] OTHERWISE {};
+
+		// COOP token
+		$asset = $constants.asset;
+
+		$governance_aa = $constants.governance_aa;
+
+		$variables = $get_variables();
+
+		$ceiling_price = 2^((timestamp - $constants.launch_ts)/$year);
+
+		$state = var['state'] OTHERWISE {total_locked: 0, total_locked_bytes: 0, locked_emissions: 0, liquid_emissions: 0, total_votes: 0, total_votes_bal: 0, ts: timestamp};
+
+		$update_emissions = () => {
+			$elapsed_days = (timestamp - $state.ts)/24/3600;
+			$s = $state.total_locked + $state.total_locked_bytes / $ceiling_price;
+			$state.locked_emissions = $state.locked_emissions + $s * $variables.daily_locked_reward * $elapsed_days;
+			$state.liquid_emissions = $state.liquid_emissions + $s * $variables.daily_liquid_reward * $elapsed_days;
+			$state.ts = timestamp;
+		};
+
+		$update_user = ($user) => {
+			if (!$state.total_votes OR !$state.total_votes_bal) return; // division by 0
+			$old_total_balance = $user.total_balance;
+			$new_locked_emissions = $state.locked_emissions - $user.last_locked_emissions;
+			$new_liquid_emissions = $state.liquid_emissions - $user.last_liquid_emissions;
+			$user.last_locked_emissions = $state.locked_emissions;
+			$user.last_liquid_emissions = $state.liquid_emissions;
+			$user_share = $variables.by_votes_share * $user.votes/$state.total_votes + (1-$variables.by_votes_share) * $user.votes * $old_total_balance/$state.total_votes_bal;
+			$user_new_locked_emissions = $new_locked_emissions * $user_share;
+			$user_new_liquid_emissions = $new_liquid_emissions * $user_share;
+			$user.balance = $user.balance + $user_new_locked_emissions;
+			$user.liquid_balance = $user.liquid_balance + $user_new_liquid_emissions;
+
+			// increases thanks to emissions, decreases thanks to depreciation of bytes balance
+			$user.total_balance = $user.balance + $user.bytes_balance/$ceiling_price; 
+			$user.last_ts = timestamp;
+
+			$state.total_locked = $state.total_locked + $user_new_locked_emissions;
+			$state.total_votes_bal = $state.total_votes_bal + ($user.total_balance - $old_total_balance) * $user.votes; // denominator for distribution by votes * balance
+		};
+
+
+		if ($asset)
+			$received_amount = trigger.output[[asset=$asset]];
+		$received_bytes_amount = max(trigger.output[[asset=base]] - 10000, 0);
+
+
+		$update_emissions();
+
+		$governance_base_aa = 'KMNZ4AAI26DIXU3DSR6DJIJWPDADVFLY';
+
+	}`,
+	messages: {
+		cases: [
+
+			// 0. define the token asset and governance AA
+			{
+				if: `{ trigger.data.define AND !$asset }`,
+				messages: [
+					{
+						app: 'asset',
+						payload: {
+							// without cap
+							is_private: false,
+							is_transferrable: true,
+							auto_destroy: false,
+							fixed_denominations: false,
+							issued_by_definer_only: true,
+							cosigned_by_definer: false,
+							spender_attested: false,
+						}
+					},
+					{ // define governance AA
+						app: 'definition',
+						payload: {
+							definition: [
+								'autonomous agent',
+								{
+									base_aa: `{$governance_base_aa}`,
+									params: {
+										coop_aa: `{this_address}`,
+									}
+								}
+							]
+						}
+					},
+					{
+						app: 'state',
+						state: `{
+							$constants.asset = response_unit;
+							$constants.governance_aa = unit[response_unit].messages[[.app='definition']].payload.address;
+							$constants.launch_ts = timestamp;
+							var['constants'] = $constants;
+							response['asset'] = response_unit;
+						}`
+					}
+				]
+			},
+
+
+			// accept variable changes from the governance AA
+			{ 
+				if: `{ trigger.address == $governance_aa AND trigger.data.name }`, // trigger.data.value can be falsy
+				init: `{
+					$name = trigger.data.name;
+					$value = trigger.data.value;
+				}`,
+				messages: [
+					{
+						app: 'state',
+						state: `{
+							$variables[$name] = $value;
+							var['variables'] = $variables;
+						}`
+					}
+				]
+			},
+
+
+			// deposit
+			{
+				if: `{
+					($received_amount > 0 OR $received_bytes_amount > 0 OR trigger.data.term) AND trigger.data.deposit
+				}`,
+				init: `{
+					$username = attestation[[attestors=$variables.messaging_attestors, address=trigger.address, ifnone=false]].username;
+					require($username, "your address must be attested on a messaging service");
+					require(!is_aa(trigger.address), "AAs not allowed to participate");
+
+					$user = var['user_'||trigger.address] OTHERWISE {balance: 0, bytes_balance: 0, total_balance: 0, unlock_date: false, reg_ts: timestamp, last_ts: timestamp, last_locked_emissions: $state.locked_emissions, last_liquid_emissions: $state.liquid_emissions};
+					$bNewUser = !$user.unlock_date;
+					$update_user($user);
+
+					$old_total_balance = $user.total_balance;
+					$total_received_amount = $received_amount + $received_bytes_amount/$ceiling_price;
+					$total_balance = $user.balance + $received_amount + ($user.bytes_balance + $received_bytes_amount)/$ceiling_price;
+					$bBigDeposit = $total_balance >= $variables.min_balance_instead_of_real_name;
+					if (!$bBigDeposit)
+						$user_id = attestation[[attestors=$variables.real_name_attestors, address=trigger.address, ifnone=false]].user_id;
+					require($user_id OR $bBigDeposit, "your address must be real-name attested or you should deposit at least "||($variables.min_balance_instead_of_real_name/1e9)||" COOP");
+					if ($user_id){
+						$addr = var['address_'||$user_id];
+						require(!$addr OR $addr == trigger.address, "only one account per user is allowed");
+					}
+
+					if (exists(trigger.data.ref)){
+						require(is_valid_address(trigger.data.ref), "referrer address not valid");
+						require(var['user_'||trigger.data.ref], "referrer doesn't exist");
+						if ($bNewUser){
+							$user.ref = trigger.data.ref;
+							if (trigger.data.no_referrer_deposit_reward)
+								$user.no_referrer_deposit_reward = true;
+						}
+						else
+							response['ref_ignored'] = "Referrer can be set only with the first deposit";
+					}
+
+					if ($user.ref){
+						$referrer = var['user_'||$user.ref];
+						$min_unlock_date = timestamp_to_string(timestamp + $year, 'date');
+						$bReferrerEligible = $referrer.unlock_date >= $min_unlock_date;
+						if (!$bReferrerEligible)
+							response['warning'] = "Referrer's unlock date is less than 1 year in the future and they are not eligible to receive the deposit reward";
+					}
+
+					$term = trigger.data.term OTHERWISE 365;
+					require($term >= 365, "minimum term is 365 days");
+					$new_unlock_date = timestamp_to_string(timestamp + $term * 24 * 3600, 'date');
+					if (!$bNewUser)
+						require($new_unlock_date >= $user.unlock_date, "new unlock date must not go back");
+
+				}`,
+				messages: [
+					{
+						if: `{$user.ref AND !$user.no_referrer_deposit_reward AND $bReferrerEligible}`,
+						app: 'payment',
+						payload: {
+							asset: `{$asset}`,
+							outputs: [{address: "{$user.ref}", amount: "{floor($total_received_amount * $variables.referrer_deposit_reward_share)}"}]
+						}
+					},
+					{
+						app: 'state',
+						state: `{
+							$user.balance = $user.balance + $received_amount;
+							$user.bytes_balance = $user.bytes_balance + $received_bytes_amount;
+							$user.total_balance = $total_balance;
+							$user.unlock_date = $new_unlock_date;
+							if ($bNewUser AND $user_id)
+								var['address_'||$user_id] = trigger.address;
+							$state.total_locked = $state.total_locked + $received_amount;
+							$state.total_locked_bytes = $state.total_locked_bytes + $received_bytes_amount;
+							$state.total_votes_bal = $state.total_votes_bal + ($total_balance - $old_total_balance) * $user.votes;
+
+							// fixed referral rewards for the 1st deposit
+							if ($bNewUser AND $user.ref){
+								$capped_referral_reward = min($variables.referral_reward, floor($total_balance));
+								$user.balance = $user.balance + $capped_referral_reward;
+								$user.total_balance = $user.total_balance + $capped_referral_reward;
+								$referrer.balance = $referrer.balance + $capped_referral_reward;
+								$referrer.total_balance = $referrer.total_balance + $capped_referral_reward;
+								$referrer.referral_rewards = $referrer.referral_rewards + $capped_referral_reward;
+								var['user_'||$user.ref] = $referrer;
+								$state.total_locked = $state.total_locked + 2 * $capped_referral_reward;
+								$state.total_votes_bal = $state.total_votes_bal + $capped_referral_reward * ($user.votes + $referrer.votes);
+								$state.total_referral_rewards = $state.total_referral_rewards + 2 * $capped_referral_reward;
+							}
+							var['user_'||trigger.address] = $user;
+							var['state'] = $state;
+
+							if ($received_amount > 0 OR $received_bytes_amount > 0)
+								response['message'] = "Deposited";
+							response['unlock_date'] = $new_unlock_date;
+							response['event'] = json_stringify({type: 'deposit', owner: trigger.address, amount: $received_amount, bytes_amount: $received_bytes_amount, referral_reward: $capped_referral_reward});
+						}`
+					}
+				]
+			},
+
+
+
+			// vote
+			{
+				if: `{trigger.data.vote AND trigger.data.for AND exists(trigger.data.strength)}`,
+				init: `{
+					$strength = trigger.data.strength;
+					require($strength >= 0 AND $strength <= 3, "vote strength must be between 0 and 3");
+
+					$for = trigger.data.for;
+					require($for != trigger.address, "voting for oneself is unnecessary, such a vote is automatically added whenever you vote for anyone else");
+				}`,
+				messages: [
+					{
+						app: 'state',
+						state: `{
+							if (trigger.data.delete_expired_votes){
+								foreach(trigger.data.delete_expired_votes, 5, ($from_address, $to_address) => {
+									$vote = var['vote_'||$from_address||'_'||$to_address];
+									if (!$vote) return;
+									if (timestamp - $vote.ts < $vote_lifetime) return; // not expired yet
+									$to_user = var['user_'||$to_address];
+									$to_user.votes = $to_user.votes - $vote.votes;
+									$state.total_votes = $state.total_votes - $vote.votes;
+									$state.total_votes_bal = $state.total_votes_bal - $vote.votes * $to_user.total_balance;
+									var['vote_'||$from_address||'_'||$to_address] = false;
+									var['user_'||$to_address] = $to_user;
+								});
+							}
+
+							$user = var['user_'||trigger.address];
+							require($user, "you are not a user");
+							require($user.balance > 0 OR $user.bytes_balance > 0, "you have no balance");
+
+							$for_user = var['user_'||$for];
+							require($for_user, "the user you are voting for does not exist");
+
+							$min_unlock_date = timestamp_to_string(timestamp + 365 * 24 * 3600, 'date');
+							require($user.unlock_date >= $min_unlock_date, "your balance unlocks on "||$user.unlock_date||", you can vote only if it unlocks in at least 1 year");
+							require($for_user.unlock_date >= $min_unlock_date, "the voted user's balance unlocks on "||$for_user.unlock_date||", you can vote for them only if it unlocks in at least 1 year");
+
+							$update_user($user);
+							$update_user($for_user);
+
+							$sqrt_bal = sqrt($user.total_balance);
+							$votes = $sqrt_bal * $strength;
+							$self_votes = $sqrt_bal * 3;
+
+							$add_vote = ($u, $address, $new_votes) => {
+								$prev_vote = var['vote_'||trigger.address||'_'||$address];
+								$delta_votes = $new_votes - $prev_vote.votes;
+								var['vote_'||trigger.address||'_'||$address] = $new_votes ? {votes: $new_votes, ts: timestamp} : false;
+								$u.votes = $u.votes + $delta_votes;
+								var['user_'||$address] = $u;
+								$state.total_votes = $state.total_votes + $delta_votes;
+								$state.total_votes_bal = $state.total_votes_bal + $delta_votes * $u.total_balance;
+							};
+
+							$add_vote($for_user, $for, $votes);
+							$add_vote($user, trigger.address, $self_votes);
+
+							response['message'] = 'Voted';
+							response['event'] = json_stringify({type: 'vote', address: trigger.address, for: $for, strength: $strength, votes: $votes});
+							var['state'] = $state;
+						}`
+					}
+				]
+			},
+
+
+			// claim
+			{
+				if: `{trigger.data.claim}`,
+				init: `{
+					$user = var['user_'||trigger.address];
+					require($user, "you are not a user");
+					
+					$restake_percent = trigger.data.restake_percent OTHERWISE 0;
+					require($restake_percent >= 0 AND $restake_percent <= 100, "invalid restake_percent");
+
+					$update_user($user);
+
+					require($user.liquid_balance > 0, "you have no liquid balance to withdraw");
+					$claimed_amount = floor($user.liquid_balance * (1 - $restake_percent/100));
+					$restaked_amount = $user.liquid_balance * $restake_percent/100;
+				}`,
+				messages: [
+					{
+						app: 'payment',
+						payload: {
+							asset: "{$asset}",
+							outputs: [{address: "{trigger.address}", amount: "{$claimed_amount}"}],
+						}
+					},
+					{
+						app: 'state',
+						state: `{
+							response['message'] = 'Claimed';
+							response['event'] = json_stringify({type: 'claim', address: trigger.address, cliamed_amount: $claimed_amount, restaked_amount: $restaked_amount, restake_percent: $restake_percent});
+							if ($restaked_amount){
+								$user.balance = $user.balance + $restaked_amount;
+								$user.total_balance = $user.total_balance + $restaked_amount;
+								$state.total_locked = $state.total_locked + $restaked_amount;
+								$state.total_votes_bal = $state.total_votes_bal + $restaked_amount * $user.votes;
+
+								// auto-extend the unlock date if restaking
+								$new_unlock_date = timestamp_to_string(timestamp + $year, 'date');
+								if ($new_unlock_date > $user.unlock_date)
+									$user.unlock_date = $new_unlock_date;
+							}
+							$user.liquid_balance = 0;
+							var['user_'||trigger.address] = $user;
+							var['state'] = $state;
+						}`
+					}
+				]
+			},
+			
+
+			// withdraw
+			{
+				if: `{trigger.data.withdraw}`,
+				init: `{
+					$user = var['user_'||trigger.address];
+					require($user, "you are not a user");
+					require(timestamp_to_string(timestamp, 'date') >= $user.unlock_date, "your balance unlocks on "||$user.unlock_date);
+					require($user.balance > 0 OR $user.bytes_balance > 0, "you have no balance");
+				}`,
+				messages: [
+					{
+						app: 'payment',
+						payload: {
+							asset: "base",
+							outputs: [
+								{address: "{trigger.address}", amount: "{floor($user.bytes_balance)}"},
+								{address: '{$governance_aa}', amount: 1000},
+							],
+						}
+					},
+					{
+						app: 'payment',
+						payload: {
+							asset: "{$asset}",
+							outputs: [{address: "{trigger.address}", amount: "{floor($user.balance + $user.liquid_balance)}"}],
+						}
+					},
+					{
+						app: 'data',
+						payload: {
+							update_user_balance: 1,
+							address: `{trigger.address}`,
+						}
+					},
+					{
+						app: 'state',
+						state: `{
+							response['message'] = 'Withdrawn';
+							response['event'] = json_stringify({type: 'withdrawal', address: trigger.address, balance: $user.balance, bytes_balance: $user.bytes_balance});
+							$state.total_locked = $state.total_locked - $user.balance;
+							$state.total_locked_bytes = $state.total_locked_bytes - $user.bytes_balance;
+							$state.total_votes_bal = $state.total_votes_bal - $user.total_balance * $user.votes;
+							$user.balance = 0;
+							$user.bytes_balance = 0;
+							$user.liquid_balance = 0;
+							$user.total_balance = 0;
+							var['user_'||trigger.address] = $user;
+							var['state'] = $state;
+						}`
+					}
+				]
+			},
+
+
+			// replace bytes with COOP or vice versa
+			{
+				if: `{trigger.data.replace AND ($received_amount > 0 OR $received_bytes_amount > 0)}`,
+				init: `{
+					require(!($received_amount AND $received_bytes_amount), "don't send both tokens");
+					$user = var['user_'||trigger.address];
+					require($user, "you are not a user");
+					$update_user($user);
+					if ($received_amount){
+						$out_bytes_amount = floor($received_amount * $ceiling_price);
+						require($user.bytes_balance >= $out_bytes_amount, "not enough bytes locked");
+						$out_amount = 0;
+					}
+					else{ // received bytes
+						$out_amount = floor($received_bytes_amount / $ceiling_price);
+						require($user.balance >= $out_amount, "not enough COOP locked");
+						$out_bytes_amount = 0;
+					}
+				}`,
+				messages: [
+					{
+						app: 'payment',
+						payload: {
+							asset: "base",
+							outputs: [{address: "{trigger.address}", amount: "{$out_bytes_amount}"}],
+						}
+					},
+					{
+						app: 'payment',
+						payload: {
+							asset: "{$asset}",
+							outputs: [{address: "{trigger.address}", amount: "{$out_amount}"}],
+						}
+					},
+					{
+						app: 'state',
+						state: `{
+							response['message'] = 'Replaced';
+							response['event'] = json_stringify({type: 'replace', address: trigger.address, received_amount: $received_amount, received_bytes_amount: $received_bytes_amount, out_amount: $out_amount, out_bytes_amount: $out_bytes_amount});
+
+							$state.total_locked = $state.total_locked + $received_amount - $out_amount;
+							$state.total_locked_bytes = $state.total_locked_bytes + $received_bytes_amount - $out_bytes_amount;
+							
+							$user.balance = $user.balance + $received_amount - $out_amount;
+							$user.bytes_balance = $user.bytes_balance + $received_bytes_amount - $out_bytes_amount;
+							
+							// total balance might change due to rounding
+							$new_total_balance = $user.balance + $user.bytes_balance/$ceiling_price;
+							$delta_total_balance = $new_total_balance - $user.total_balance;
+							$user.total_balance = $new_total_balance;
+							
+							$state.total_votes_bal = $state.total_votes_bal + $delta_total_balance * $user.votes;
+							
+							var['user_'||trigger.address] = $user;
+							var['state'] = $state;
+						}`
+					}
+				]
+			},
+
+
+
+		]
+	}
+}
