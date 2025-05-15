@@ -7,6 +7,13 @@
 
 		$year = 31536000; // 365 * 24 * 3600;
 
+
+		$get_deposited_supply = () => {
+			$state = var['state'];
+			$state.total_locked
+		};
+		
+
 		$get_variables = () => {
 			var['variables'] OTHERWISE {
 				daily_locked_reward: 0.01,
