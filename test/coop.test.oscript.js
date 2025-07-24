@@ -204,6 +204,7 @@ describe('COOP', function () {
 					address: this.aliceAddress,
 					profile: {
 						username: 'alice',
+						userId: '123',
 					},
 				}
 			}],
@@ -320,7 +321,7 @@ describe('COOP', function () {
 
 		const { vars } = await this.alice.readAAStateVars(this.coop_aa)
 		expect(vars['user_' + this.aliceAddress]).to.deep.eq(this.alice_profile)
-		expect(vars['address_aaaa']).to.eq(this.aliceAddress)
+		expect(vars['rn_address_aaaa']).to.eq(this.aliceAddress)
 		expect(vars.state).to.deep.eq(this.state)
 	})
 
@@ -333,6 +334,7 @@ describe('COOP', function () {
 					address: this.bobAddress,
 					profile: {
 						username: 'bob',
+						userId: '456',
 					},
 				}
 			}],

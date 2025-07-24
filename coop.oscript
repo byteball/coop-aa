@@ -168,6 +168,11 @@
 				init: `{
 					$username = attestation[[attestors=$variables.messaging_attestors, address=trigger.address, ifnone=false]].username;
 					require($username, "your address must be attested on a messaging service");
+
+					$messagingUserId = attestation[[attestors=$variables.messaging_attestors, address=trigger.address, ifnone=false]].userId OTHERWISE $username;
+					$m_addr = var['m_address_'||$messagingUserId];
+					require(!$m_addr OR $m_addr == trigger.address, "only one account per messaging user is allowed");
+
 					require(!is_aa(trigger.address), "AAs not allowed to participate");
 
 					$user = var['user_'||trigger.address] OTHERWISE {balance: 0, bytes_balance: 0, total_balance: 0, unlock_date: false, reg_ts: timestamp, last_ts: timestamp, last_locked_emissions: $state.locked_emissions, last_liquid_emissions: $state.liquid_emissions};
@@ -182,7 +187,7 @@
 						$user_id = attestation[[attestors=$variables.real_name_attestors, address=trigger.address, ifnone=false]].user_id;
 					require($user_id OR $bBigDeposit, "your address must be real-name attested or you should deposit at least "||($variables.min_balance_instead_of_real_name/1e9)||" COOP");
 					if ($user_id){
-						$addr = var['address_'||$user_id];
+						$addr = var['rn_address_'||$user_id];
 						require(!$addr OR $addr == trigger.address, "only one account per user is allowed");
 					}
 
@@ -230,7 +235,8 @@
 							$user.total_balance = $total_balance;
 							$user.unlock_date = $new_unlock_date;
 							if ($bNewUser AND $user_id)
-								var['address_'||$user_id] = trigger.address;
+								var['rn_address_'||$user_id] = trigger.address;
+							var['m_address_'||$messagingUserId] = trigger.address;
 							$state.total_locked = $state.total_locked + $received_amount;
 							$state.total_locked_bytes = $state.total_locked_bytes + $received_bytes_amount;
 							$state.total_votes_bal = $state.total_votes_bal + ($total_balance - $old_total_balance) * $user.votes;
