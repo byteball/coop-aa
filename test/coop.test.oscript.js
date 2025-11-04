@@ -794,6 +794,7 @@ describe('COOP', function () {
 			last_locked_emissions: this.state.locked_emissions,
 			last_liquid_emissions: this.state.liquid_emissions,
 		}
+		this.bob_profile.referred_users = 1
 		this.bob_profile.referral_rewards = capped_referral_reward
 		this.bob_profile.balance += capped_referral_reward
 		this.bob_profile.total_balance += capped_referral_reward

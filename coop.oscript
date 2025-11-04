@@ -253,6 +253,7 @@
 								$referrer.balance = $referrer.balance + $capped_referral_reward;
 								$referrer.total_balance = $referrer.total_balance + $capped_referral_reward;
 								$referrer.referral_rewards = $referrer.referral_rewards + $capped_referral_reward;
+								$referrer.referred_users = $referrer.referred_users + 1;
 								var['user_'||$user.ref] = $referrer;
 								$state.total_locked = $state.total_locked + 2 * $capped_referral_reward;
 								$state.total_votes_bal = $state.total_votes_bal + $capped_referral_reward * ($user.votes + $referrer.votes);
