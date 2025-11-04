@@ -47,7 +47,10 @@
 			sqrt($balance)
 		};
 
-		$get_value_key = $value => $value;
+		$get_value_key = $value => {
+			$key_len = length('support_messaging_attestors_' || $value);
+			($key_len > 128) ? 'hash_'||sha256($value) : $value
+		};
 
 	}`,
 	messages: {

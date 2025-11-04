@@ -91,7 +91,7 @@
 
 		$update_emissions();
 
-		$governance_base_aa = 'OTVP37ROKUSKEFDUKXSDKIAROVKFPDOO';
+		$governance_base_aa = 'U3YSX54KFAMR3XY4A2UQPSX2KDIGUOHA';
 
 	}`,
 	messages: {
