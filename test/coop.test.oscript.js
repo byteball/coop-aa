@@ -48,7 +48,16 @@ describe('COOP', function () {
 		this.realNameAttestorAddress = await this.realNameAttestor.getAddress()
 
 		this.variables = {
+			daily_locked_reward: 0.01,
+			daily_liquid_reward: 0.001,
+			bytes_reducer: 0.75,
 			by_votes_share: 0.5,
+			messaging_attestors: this.messagingAttestorAddress,
+			real_name_attestors: this.realNameAttestorAddress,
+			referrer_coop_deposit_reward_share: 0.02,
+			referrer_bytes_deposit_reward_share: 0.01,
+			referral_reward: 10e9,
+			min_balance_instead_of_real_name: 500e9,
 		}
 
 
@@ -79,7 +88,7 @@ describe('COOP', function () {
 			if (!timestamp) throw Error(`no timestamp`)
 			const ceiling_price = 2 ** ((timestamp - this.launch_ts) / (365 * 24 * 3600))
 			const elapsed_days = (timestamp - this.state.ts) / 24 / 3600
-			const s = this.state.total_locked + this.state.total_locked_bytes / ceiling_price;
+			const s = this.state.total_locked + this.state.total_locked_bytes / ceiling_price * this.variables.bytes_reducer;
 			this.state.locked_emissions += s * 0.01 * elapsed_days;
 			this.state.liquid_emissions += s * 0.001 * elapsed_days;
 			this.state.ts = timestamp;
@@ -106,7 +115,7 @@ describe('COOP', function () {
 			user.liquid_rewards += user_new_liquid_emissions;
 
 			// increases thanks to emissions, decreases thanks to depreciation of bytes balance
-			user.total_balance = user.balance + user.bytes_balance/ceiling_price; 
+			user.total_balance = user.balance + user.bytes_balance/ceiling_price * this.variables.bytes_reducer; 
 			user.last_ts = timestamp;
 
 			this.state.total_locked += user_new_locked_emissions;
@@ -305,7 +314,7 @@ describe('COOP', function () {
 		this.alice_profile = {
 			balance: 0,
 			bytes_balance: amount,
-			total_balance: amount,
+			total_balance: amount * this.variables.bytes_reducer,
 			unlock_date,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
@@ -376,7 +385,7 @@ describe('COOP', function () {
 		this.bob_profile = {
 			balance: 0,
 			bytes_balance: amount,
-			total_balance: amount,
+			total_balance: amount * this.variables.bytes_reducer,
 			unlock_date,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
@@ -670,17 +679,7 @@ describe('COOP', function () {
 		const { vars } = await this.alice.readAAStateVars(this.governance_aa)
 		expect(vars[name]).to.eq(value)
 
-		this.variables = {
-			daily_locked_reward: 0.01,
-			daily_liquid_reward: 0.001,
-			by_votes_share: 0.5,
-			messaging_attestors: value,
-			real_name_attestors: this.realNameAttestorAddress,
-			referrer_coop_deposit_reward_share: 0.02,
-			referrer_bytes_deposit_reward_share: 0.01,
-			referral_reward: 10e9,
-			min_balance_instead_of_real_name: 500e9,
-		}
+		this.variables.messaging_attestors = value
 		const { vars: coop_vars } = await this.alice.readAAStateVars(this.coop_aa)
 		expect(coop_vars.variables).to.deep.eq(this.variables)
 
@@ -949,7 +948,7 @@ describe('COOP', function () {
 
 		this.carol_profile.balance -= out_amount
 		this.carol_profile.bytes_balance += bytes_amount
-		const new_total_balance = this.carol_profile.balance + this.carol_profile.bytes_balance / ceiling_price
+		const new_total_balance = this.carol_profile.balance + this.carol_profile.bytes_balance / ceiling_price * this.variables.bytes_reducer
 		const delta_total_balance = new_total_balance - this.carol_profile.total_balance
 		this.carol_profile.total_balance = new_total_balance
 		this.state.total_locked -= out_amount
@@ -976,7 +975,7 @@ describe('COOP', function () {
 	it("Carol votes for changing the by-votes share", async () => {
 		const timestamp = await this.timetravel('0d')
 		const ceiling_price = 2 ** ((timestamp - this.launch_ts) / 365 / 24 / 3600)
-		const balance = this.carol_profile.bytes_balance / ceiling_price + this.carol_profile.balance
+		const balance = this.carol_profile.bytes_balance / ceiling_price * this.variables.bytes_reducer + this.carol_profile.balance
 		const sqrt_balance = Math.sqrt(balance)
 
 		const name = 'by_votes_share'
@@ -1136,7 +1135,7 @@ describe('COOP', function () {
 
 		this.alice_profile.balance += amount
 		this.alice_profile.bytes_balance -= out_bytes_amount
-		const new_total_balance = this.alice_profile.balance + this.alice_profile.bytes_balance / ceiling_price
+		const new_total_balance = this.alice_profile.balance + this.alice_profile.bytes_balance / ceiling_price * this.variables.bytes_reducer
 		const delta_total_balance = new_total_balance - this.alice_profile.total_balance
 		this.alice_profile.total_balance = new_total_balance
 		this.state.total_locked += amount

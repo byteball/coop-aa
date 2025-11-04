@@ -18,6 +18,7 @@
 			var['variables'] OTHERWISE {
 				daily_locked_reward: 0.01,
 				daily_liquid_reward: 0.001,
+				bytes_reducer: 0.75,
 				by_votes_share: 0.5,
 				messaging_attestors: 'JBW7HT5CRBSF7J7RD26AYLQG6GZDPFPS:5KM36CFPBD2QJLVD65PHZG34WEM4RPY2',
 				real_name_attestors: 'JFKWGRMXP3KHUAFMF4SJZVDXFL6ACC6P',
@@ -56,7 +57,7 @@
 
 		$update_emissions = () => {
 			$elapsed_days = (timestamp - $state.ts)/24/3600;
-			$s = $state.total_locked + $state.total_locked_bytes / $ceiling_price;
+			$s = $state.total_locked + $state.total_locked_bytes / $ceiling_price * $variables.bytes_reducer;
 			$state.locked_emissions = $state.locked_emissions + $s * $variables.daily_locked_reward * $elapsed_days;
 			$state.liquid_emissions = $state.liquid_emissions + $s * $variables.daily_liquid_reward * $elapsed_days;
 			$state.ts = timestamp;
@@ -78,7 +79,7 @@
 			$user.liquid_rewards = $user.liquid_rewards + $user_new_liquid_emissions;
 
 			// increases thanks to emissions, decreases thanks to depreciation of bytes balance
-			$user.total_balance = $user.balance + $user.bytes_balance/$ceiling_price; 
+			$user.total_balance = $user.balance + $user.bytes_balance/$ceiling_price * $variables.bytes_reducer; 
 			$user.last_ts = timestamp;
 
 			$state.total_locked = $state.total_locked + $user_new_locked_emissions;
@@ -93,7 +94,7 @@
 
 		$update_emissions();
 
-		$governance_base_aa = 'U3YSX54KFAMR3XY4A2UQPSX2KDIGUOHA';
+		$governance_base_aa = '44WOODO7QH47C25PW6IMR5W5TDU56ZNA';
 
 	}`,
 	messages: {
@@ -184,8 +185,8 @@
 
 					$old_total_balance = $user.total_balance;
 				//	$total_received_amount = $received_amount + $received_bytes_amount/$ceiling_price;
-					$total_balance = $user.balance + $received_amount + ($user.bytes_balance + $received_bytes_amount)/$ceiling_price;
-					$bBigDeposit = $total_balance >= $variables.min_balance_instead_of_real_name;
+					$total_balance_sans_reducers = $user.balance + $received_amount + ($user.bytes_balance + $received_bytes_amount)/$ceiling_price;
+					$bBigDeposit = $total_balance_sans_reducers >= $variables.min_balance_instead_of_real_name;
 					if (!$bBigDeposit)
 						$user_id = attestation[[attestors=$variables.real_name_attestors, address=trigger.address, ifnone=false]].user_id;
 					require($user_id OR $bBigDeposit, "your address must be real-name attested or you should deposit at least "||($variables.min_balance_instead_of_real_name/1e9)||" COOP");
@@ -235,18 +236,18 @@
 						state: `{
 							$user.balance = $user.balance + $received_amount;
 							$user.bytes_balance = $user.bytes_balance + $received_bytes_amount;
-							$user.total_balance = $total_balance;
+							$user.total_balance = $user.balance + $user.bytes_balance/$ceiling_price * $variables.bytes_reducer;
 							$user.unlock_date = $new_unlock_date;
 							if ($bNewUser AND $user_id)
 								var['rn_address_'||$user_id] = trigger.address;
 							var['m_address_'||$messagingUserId] = trigger.address;
 							$state.total_locked = $state.total_locked + $received_amount;
 							$state.total_locked_bytes = $state.total_locked_bytes + $received_bytes_amount;
-							$state.total_votes_bal = $state.total_votes_bal + ($total_balance - $old_total_balance) * $user.votes;
+							$state.total_votes_bal = $state.total_votes_bal + ($user.total_balance - $old_total_balance) * $user.votes;
 
 							// fixed referral rewards for the 1st deposit
 							if ($bNewUser AND $user.ref){
-								$capped_referral_reward = min($variables.referral_reward, floor($total_balance));
+								$capped_referral_reward = min($variables.referral_reward, floor($user.total_balance));
 								$user.balance = $user.balance + $capped_referral_reward;
 								$user.total_balance = $user.total_balance + $capped_referral_reward;
 								$referrer.balance = $referrer.balance + $capped_referral_reward;
@@ -489,7 +490,7 @@
 							$user.bytes_balance = $user.bytes_balance + $received_bytes_amount - $out_bytes_amount;
 							
 							// total balance might change due to rounding
-							$new_total_balance = $user.balance + $user.bytes_balance/$ceiling_price;
+							$new_total_balance = $user.balance + $user.bytes_balance/$ceiling_price * $variables.bytes_reducer;
 							$delta_total_balance = $new_total_balance - $user.total_balance;
 							$user.total_balance = $new_total_balance;
 							

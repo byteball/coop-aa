@@ -11,6 +11,7 @@
 		$names = [
 			'daily_locked_reward',
 			'daily_liquid_reward',
+			'bytes_reducer',
 			'by_votes_share',
 			'messaging_attestors',
 			'real_name_attestors',
@@ -19,7 +20,7 @@
 			'referral_reward',
 			'min_balance_instead_of_real_name',
 		];
-		$count_names = 9;
+		$count_names = 10;
 		require(length($names) == $count_names, "wrong number of governable parameters");
 		
 		$is_allowed_name = $name => {
