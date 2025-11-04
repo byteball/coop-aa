@@ -139,8 +139,8 @@ describe('COOP', function () {
 
 	it('Deploy COOP AA', async () => {
 		let coop = fs.readFileSync(path.join(__dirname, '../coop.oscript'), 'utf8');
-		coop = coop.replace(/messaging_attestors: '\w*'/, `messaging_attestors: '${this.messagingAttestorAddress}'`)
-		coop = coop.replace(/real_name_attestors: '\w*'/, `real_name_attestors: '${this.realNameAttestorAddress}'`)
+		coop = coop.replace(/messaging_attestors: '[\w:]*'/, `messaging_attestors: '${this.messagingAttestorAddress}'`)
+		coop = coop.replace(/real_name_attestors: '[\w:]*'/, `real_name_attestors: '${this.realNameAttestorAddress}'`)
 
 		const { address, error } = await this.alice.deployAgent(coop)
 		console.log(error)
