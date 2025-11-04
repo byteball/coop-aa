@@ -25,7 +25,7 @@
 				referrer_coop_deposit_reward_share: 0.02,
 				referrer_bytes_deposit_reward_share: 0.01,
 				referral_reward: 10e9,
-				min_balance_instead_of_real_name: 500e9,
+				min_balance_instead_of_real_name: 50e9,
 			}
 		};
 

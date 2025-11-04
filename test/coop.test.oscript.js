@@ -57,7 +57,7 @@ describe('COOP', function () {
 			referrer_coop_deposit_reward_share: 0.02,
 			referrer_bytes_deposit_reward_share: 0.01,
 			referral_reward: 10e9,
-			min_balance_instead_of_real_name: 500e9,
+			min_balance_instead_of_real_name: 50e9,
 		}
 
 
@@ -244,7 +244,7 @@ describe('COOP', function () {
 		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
 		expect(response.bounced).to.be.true
 		expect(response.response_unit).to.be.validUnit
-		expect(response.response.error).to.eq("your address must be real-name attested or you should deposit at least 500 COOP")
+		expect(response.response.error).to.eq(`your address must be real-name attested or you should deposit at least ${this.variables.min_balance_instead_of_real_name / 1e9} COOP`)
 	})
 
 
@@ -288,7 +288,7 @@ describe('COOP', function () {
 
 
 	it('Alice deposits', async () => {
-		const amount = 100e9
+		const amount = 10e9
 		console.log(`paying ${amount/1e9} GB`)
 
 		const { unit, error } = await this.alice.triggerAaWithData({
@@ -358,8 +358,8 @@ describe('COOP', function () {
 	})
 
 
-	it('Bob deposits 501 GB without real-name attestation', async () => {
-		const amount = 501e9
+	it('Bob deposits 50.1 GB without real-name attestation', async () => {
+		const amount = 50.1e9
 		console.log(`paying ${amount/1e9} GB`)
 
 		const { unit, error } = await this.bob.triggerAaWithData({
