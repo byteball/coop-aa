@@ -672,7 +672,8 @@ describe('COOP', function () {
 			by_votes_share: 0.5,
 			messaging_attestors: value,
 			real_name_attestors: this.realNameAttestorAddress,
-			referrer_deposit_reward_share: 0.01,
+			referrer_coop_deposit_reward_share: 0.02,
+			referrer_bytes_deposit_reward_share: 0.01,
 			referral_reward: 10e9,
 			min_balance_instead_of_real_name: 500e9,
 		}
@@ -796,7 +797,7 @@ describe('COOP', function () {
 		expect(vars.state).to.deepCloseTo(this.state, 13)
 		this.check_totals()
 
-		const ref_deposit_reward = Math.floor(amount * 0.01)
+		const ref_deposit_reward = Math.floor(amount * this.variables.referrer_coop_deposit_reward_share)
 		this.bob_liquid += ref_deposit_reward
 
 		const { unitObj } = await this.carol.getUnitInfo({ unit: response.response_unit })

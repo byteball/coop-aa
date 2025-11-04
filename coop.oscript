@@ -21,7 +21,8 @@
 				by_votes_share: 0.5,
 				messaging_attestors: '',
 				real_name_attestors: '',
-				referrer_deposit_reward_share: 0.01,
+				referrer_coop_deposit_reward_share: 0.02,
+				referrer_bytes_deposit_reward_share: 0.01,
 				referral_reward: 10e9,
 				min_balance_instead_of_real_name: 500e9,
 			}
@@ -90,7 +91,7 @@
 
 		$update_emissions();
 
-		$governance_base_aa = 'KMNZ4AAI26DIXU3DSR6DJIJWPDADVFLY';
+		$governance_base_aa = 'OTVP37ROKUSKEFDUKXSDKIAROVKFPDOO';
 
 	}`,
 	messages: {
@@ -180,7 +181,7 @@
 					$update_user($user);
 
 					$old_total_balance = $user.total_balance;
-					$total_received_amount = $received_amount + $received_bytes_amount/$ceiling_price;
+				//	$total_received_amount = $received_amount + $received_bytes_amount/$ceiling_price;
 					$total_balance = $user.balance + $received_amount + ($user.bytes_balance + $received_bytes_amount)/$ceiling_price;
 					$bBigDeposit = $total_balance >= $variables.min_balance_instead_of_real_name;
 					if (!$bBigDeposit)
@@ -224,7 +225,7 @@
 						app: 'payment',
 						payload: {
 							asset: `{$asset}`,
-							outputs: [{address: "{$user.ref}", amount: "{floor($total_received_amount * $variables.referrer_deposit_reward_share)}"}]
+							outputs: [{address: "{$user.ref}", amount: "{floor($received_amount * $variables.referrer_coop_deposit_reward_share + $received_bytes_amount/$ceiling_price * $variables.referrer_bytes_deposit_reward_share)}"}]
 						}
 					},
 					{
