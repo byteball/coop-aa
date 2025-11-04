@@ -3,7 +3,7 @@
 	doc_url: "https://coop.obyte.org/coop.json",
 	getters: `{
 
-		/* nonce: 572519 */
+		/* nonce: 194412 */
 
 		$year = 31536000; // 365 * 24 * 3600;
 
@@ -265,7 +265,7 @@
 							if ($received_amount > 0 OR $received_bytes_amount > 0)
 								response['message'] = "Deposited";
 							response['unlock_date'] = $new_unlock_date;
-							response['event'] = json_stringify({type: 'deposit', owner: trigger.address, amount: $received_amount, bytes_amount: $received_bytes_amount, referral_reward: $capped_referral_reward});
+							response['event'] = json_stringify({type: 'deposit', owner: trigger.address, amount: $received_amount, bytes_amount: $received_bytes_amount, referral_reward: $capped_referral_reward, total_balance: $user.total_balance});
 						}`
 					}
 				]
@@ -333,7 +333,7 @@
 							$add_vote($user, trigger.address, $self_votes);
 
 							response['message'] = 'Voted';
-							response['event'] = json_stringify({type: 'vote', address: trigger.address, for: $for, strength: $strength, votes: $votes});
+							response['event'] = json_stringify({type: 'vote', address: trigger.address, for: $for, strength: $strength, votes: $votes, total_balance: $user.total_balance, for_total_balance: $for_user.total_balance});
 							var['state'] = $state;
 						}`
 					}
@@ -368,8 +368,6 @@
 					{
 						app: 'state',
 						state: `{
-							response['message'] = 'Claimed';
-							response['event'] = json_stringify({type: 'claim', address: trigger.address, cliamed_amount: $claimed_amount, restaked_amount: $restaked_amount, restake_percent: $restake_percent});
 							if ($restaked_amount){
 								$user.balance = $user.balance + $restaked_amount;
 								$user.total_balance = $user.total_balance + $restaked_amount;
@@ -384,6 +382,9 @@
 							$user.liquid_balance = 0;
 							var['user_'||trigger.address] = $user;
 							var['state'] = $state;
+							
+							response['message'] = 'Claimed';
+							response['event'] = json_stringify({type: 'claim', address: trigger.address, cliamed_amount: $claimed_amount, restaked_amount: $restaked_amount, restake_percent: $restake_percent, total_balance: $user.total_balance});
 						}`
 					}
 				]
@@ -428,7 +429,7 @@
 						app: 'state',
 						state: `{
 							response['message'] = 'Withdrawn';
-							response['event'] = json_stringify({type: 'withdrawal', address: trigger.address, balance: $user.balance, bytes_balance: $user.bytes_balance});
+							response['event'] = json_stringify({type: 'withdrawal', address: trigger.address, balance: $user.balance, bytes_balance: $user.bytes_balance, total_balance: 0});
 							$state.total_locked = $state.total_locked - $user.balance;
 							$state.total_locked_bytes = $state.total_locked_bytes - $user.bytes_balance;
 							$state.total_votes_bal = $state.total_votes_bal - $user.total_balance * $user.votes;
@@ -481,9 +482,6 @@
 					{
 						app: 'state',
 						state: `{
-							response['message'] = 'Replaced';
-							response['event'] = json_stringify({type: 'replace', address: trigger.address, received_amount: $received_amount, received_bytes_amount: $received_bytes_amount, out_amount: $out_amount, out_bytes_amount: $out_bytes_amount});
-
 							$state.total_locked = $state.total_locked + $received_amount - $out_amount;
 							$state.total_locked_bytes = $state.total_locked_bytes + $received_bytes_amount - $out_bytes_amount;
 							
@@ -499,6 +497,9 @@
 							
 							var['user_'||trigger.address] = $user;
 							var['state'] = $state;
+
+							response['message'] = 'Replaced';
+							response['event'] = json_stringify({type: 'replace', address: trigger.address, received_amount: $received_amount, received_bytes_amount: $received_bytes_amount, out_amount: $out_amount, out_bytes_amount: $out_bytes_amount, total_balance: $user.total_balance});
 						}`
 					}
 				]
