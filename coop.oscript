@@ -246,7 +246,7 @@
 							$state.total_votes_bal = $state.total_votes_bal + ($user.total_balance - $old_total_balance) * $user.votes;
 
 							// fixed referral rewards for the 1st deposit
-							if ($bNewUser AND $user.ref){
+							if ($bNewUser AND $user.ref AND $bReferrerEligible){
 								$capped_referral_reward = min($variables.referral_reward, floor($user.total_balance));
 								$user.balance = $user.balance + $capped_referral_reward;
 								$user.total_balance = $user.total_balance + $capped_referral_reward;
