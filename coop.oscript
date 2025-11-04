@@ -179,7 +179,7 @@
 
 					require(!is_aa(trigger.address), "AAs not allowed to participate");
 
-					$user = var['user_'||trigger.address] OTHERWISE {balance: 0, bytes_balance: 0, total_balance: 0, unlock_date: false, reg_ts: timestamp, last_ts: timestamp, last_locked_emissions: $state.locked_emissions, last_liquid_emissions: $state.liquid_emissions};
+					$user = var['user_'||trigger.address] OTHERWISE {balance: 0, bytes_balance: 0, total_balance: 0, unlock_date: false, reg_date: timestamp_to_string(timestamp, 'date'), reg_ts: timestamp, last_ts: timestamp, last_locked_emissions: $state.locked_emissions, last_liquid_emissions: $state.liquid_emissions};
 					$bNewUser = !$user.unlock_date;
 					$update_user($user);
 

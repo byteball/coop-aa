@@ -308,6 +308,7 @@ describe('COOP', function () {
 		expect(response.response_unit).to.be.null
 		expect(response.response.responseVars.message).to.eq("Deposited")
 		const unlock_date = new Date((response.timestamp + 365 * 24 * 3600) * 1000).toISOString().substring(0, 10)
+		const today = new Date(response.timestamp * 1000).toISOString().substring(0, 10)
 		expect(response.response.responseVars.unlock_date).to.eq(unlock_date)
 
 		this.total_locked_bytes = amount
@@ -316,6 +317,7 @@ describe('COOP', function () {
 			bytes_balance: amount,
 			total_balance: amount * this.variables.bytes_reducer,
 			unlock_date,
+			reg_date: today,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
 			last_locked_emissions: 0,
@@ -379,6 +381,7 @@ describe('COOP', function () {
 		expect(response.response_unit).to.be.null
 		expect(response.response.responseVars.message).to.eq("Deposited")
 		const unlock_date = new Date((response.timestamp + 365 * 24 * 3600) * 1000).toISOString().substring(0, 10)
+		const today = new Date(response.timestamp * 1000).toISOString().substring(0, 10)
 		expect(response.response.responseVars.unlock_date).to.eq(unlock_date)
 
 		this.total_locked_bytes += amount
@@ -387,6 +390,7 @@ describe('COOP', function () {
 			bytes_balance: amount,
 			total_balance: amount * this.variables.bytes_reducer,
 			unlock_date,
+			reg_date: today,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
 			last_locked_emissions: 0,
@@ -771,6 +775,7 @@ describe('COOP', function () {
 		expect(response.response_unit).to.be.validUnit
 		expect(response.response.responseVars.message).to.eq("Deposited")
 		const unlock_date = new Date((response.timestamp + term * 24 * 3600) * 1000).toISOString().substring(0, 10)
+		const today = new Date(response.timestamp * 1000).toISOString().substring(0, 10)
 		expect(response.response.responseVars.unlock_date).to.eq(unlock_date)
 
 		this.total_locked += amount + 2 * capped_referral_reward
@@ -782,6 +787,7 @@ describe('COOP', function () {
 			locked_rewards: 0,
 			liquid_rewards: 0,
 			unlock_date,
+			reg_date: today,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
 			ref: this.bobAddress,
