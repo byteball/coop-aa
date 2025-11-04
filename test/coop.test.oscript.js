@@ -100,6 +100,10 @@ describe('COOP', function () {
 			user.balance += user_new_locked_emissions;
 			if (!user.liquid_balance) user.liquid_balance = 0;
 			user.liquid_balance += user_new_liquid_emissions;
+			if (!user.locked_rewards) user.locked_rewards = 0;
+			if (!user.liquid_rewards) user.liquid_rewards = 0;
+			user.locked_rewards += user_new_locked_emissions;
+			user.liquid_rewards += user_new_liquid_emissions;
 
 			// increases thanks to emissions, decreases thanks to depreciation of bytes balance
 			user.total_balance = user.balance + user.bytes_balance/ceiling_price; 
@@ -776,6 +780,8 @@ describe('COOP', function () {
 			bytes_balance: 0,
 			liquid_balance: 0,
 			total_balance: amount + capped_referral_reward,
+			locked_rewards: 0,
+			liquid_rewards: 0,
 			unlock_date,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
