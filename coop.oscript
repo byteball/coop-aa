@@ -216,7 +216,7 @@
 					}
 
 					$term = trigger.data.term OTHERWISE 365;
-					require($term >= 365, "minimum term is 365 days");
+					require($term >= 365 AND $term <= 3650, "minimum term is 365 days and maximum term is 3650 days");
 					$new_unlock_date = timestamp_to_string(timestamp + $term * 24 * 3600, 'date');
 					if (!$bNewUser)
 						require($new_unlock_date >= $user.unlock_date, "new unlock date must not go back");
