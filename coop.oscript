@@ -384,7 +384,7 @@
 							var['state'] = $state;
 							
 							response['message'] = 'Claimed';
-							response['event'] = json_stringify({type: 'claim', address: trigger.address, cliamed_amount: $claimed_amount, restaked_amount: $restaked_amount, restake_percent: $restake_percent, total_balance: $user.total_balance});
+							response['event'] = json_stringify({type: 'claim', address: trigger.address, claimed_amount: $claimed_amount, restaked_amount: $restaked_amount, restake_percent: $restake_percent, total_balance: $user.total_balance});
 						}`
 					}
 				]
