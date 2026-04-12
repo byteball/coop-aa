@@ -3,7 +3,7 @@
 	doc_url: "https://coop.obyte.org/coop.json",
 	getters: `{
 
-		/* nonce: 194412 */
+		/* nonce: 135510 */
 
 		$year = 31536000; // 365 * 24 * 3600;
 
@@ -51,28 +51,55 @@
 
 		$variables = $get_variables();
 
+		$by_votes_share = $variables.by_votes_share;
+		$by_vb_share = 1 - $by_votes_share;
+
 		$ceiling_price = 2^((timestamp - $constants.launch_ts)/$year);
 
-		$state = var['state'] OTHERWISE {total_locked: 0, total_locked_bytes: 0, locked_emissions: 0, liquid_emissions: 0, total_votes: 0, total_votes_bal: 0, ts: timestamp};
+		$state = var['state'] OTHERWISE {
+			total_locked: 0,
+			total_locked_bytes: 0,
+			locked_emissions: 0,
+			liquid_emissions: 0,
+			locked_emissions_per_vote: 0,
+			liquid_emissions_per_vote: 0,
+			locked_emissions_per_vb: 0,
+			liquid_emissions_per_vb: 0,
+			total_votes: 0,
+			total_votes_bal: 0,
+			ts: timestamp,
+		};
 
 		$update_emissions = () => {
 			$elapsed_days = (timestamp - $state.ts)/24/3600;
 			$s = $state.total_locked + $state.total_locked_bytes / $ceiling_price * $variables.bytes_reducer;
-			$state.locked_emissions = $state.locked_emissions + $s * $variables.daily_locked_reward * $elapsed_days;
-			$state.liquid_emissions = $state.liquid_emissions + $s * $variables.daily_liquid_reward * $elapsed_days;
+			$new_locked_emissions = $s * $variables.daily_locked_reward * $elapsed_days;
+			$new_liquid_emissions = $s * $variables.daily_liquid_reward * $elapsed_days;
+			$state.locked_emissions = $state.locked_emissions + $new_locked_emissions;
+			$state.liquid_emissions = $state.liquid_emissions + $new_liquid_emissions;
+			if ($state.total_votes AND $state.total_votes_bal){
+				$state.locked_emissions_per_vote = $state.locked_emissions_per_vote + $new_locked_emissions / $state.total_votes;
+				$state.liquid_emissions_per_vote = $state.liquid_emissions_per_vote + $new_liquid_emissions / $state.total_votes;
+				$state.locked_emissions_per_vb = $state.locked_emissions_per_vb + $new_locked_emissions / $state.total_votes_bal;
+				$state.liquid_emissions_per_vb = $state.liquid_emissions_per_vb + $new_liquid_emissions / $state.total_votes_bal;
+			}
 			$state.ts = timestamp;
 		};
 
 		$update_user = ($user) => {
-			if (!$state.total_votes OR !$state.total_votes_bal) return; // division by 0
 			$old_total_balance = $user.total_balance;
-			$new_locked_emissions = $state.locked_emissions - $user.last_locked_emissions;
-			$new_liquid_emissions = $state.liquid_emissions - $user.last_liquid_emissions;
-			$user.last_locked_emissions = $state.locked_emissions;
-			$user.last_liquid_emissions = $state.liquid_emissions;
-			$user_share = $variables.by_votes_share * $user.votes/$state.total_votes + (1-$variables.by_votes_share) * $user.votes * $old_total_balance/$state.total_votes_bal;
-			$user_new_locked_emissions = $new_locked_emissions * $user_share;
-			$user_new_liquid_emissions = $new_liquid_emissions * $user_share;
+			$new_locked_emissions_per_vote = $state.locked_emissions_per_vote - $user.last_locked_emissions_per_vote;
+			$new_liquid_emissions_per_vote = $state.liquid_emissions_per_vote - $user.last_liquid_emissions_per_vote;
+			$new_locked_emissions_per_vb = $state.locked_emissions_per_vb - $user.last_locked_emissions_per_vb;
+			$new_liquid_emissions_per_vb = $state.liquid_emissions_per_vb - $user.last_liquid_emissions_per_vb;
+			$user.last_locked_emissions_per_vote = $state.locked_emissions_per_vote;
+			$user.last_liquid_emissions_per_vote = $state.liquid_emissions_per_vote;
+			$user.last_locked_emissions_per_vb = $state.locked_emissions_per_vb;
+			$user.last_liquid_emissions_per_vb = $state.liquid_emissions_per_vb;
+			$v = $by_votes_share * $user.votes;
+			$vb = $by_vb_share * $user.votes * $old_total_balance;
+			$user_new_locked_emissions = $v * $new_locked_emissions_per_vote + $vb * $new_locked_emissions_per_vb;
+			$user_new_liquid_emissions = $v * $new_liquid_emissions_per_vote + $vb * $new_liquid_emissions_per_vb;
 			$user.balance = $user.balance + $user_new_locked_emissions;
 			$user.liquid_balance = $user.liquid_balance + $user_new_liquid_emissions;
 			$user.locked_rewards = $user.locked_rewards + $user_new_locked_emissions;
@@ -179,7 +206,19 @@
 
 					require(!is_aa(trigger.address), "AAs not allowed to participate");
 
-					$user = var['user_'||trigger.address] OTHERWISE {balance: 0, bytes_balance: 0, total_balance: 0, unlock_date: false, reg_date: timestamp_to_string(timestamp, 'date'), reg_ts: timestamp, last_ts: timestamp, last_locked_emissions: $state.locked_emissions, last_liquid_emissions: $state.liquid_emissions};
+					$user = var['user_'||trigger.address] OTHERWISE {
+						balance: 0, 
+						bytes_balance: 0, 
+						total_balance: 0, 
+						unlock_date: false, 
+						reg_date: timestamp_to_string(timestamp, 'date'), 
+						reg_ts: timestamp, 
+						last_ts: timestamp, 
+						last_locked_emissions_per_vote: $state.locked_emissions_per_vote, 
+						last_liquid_emissions_per_vote: $state.liquid_emissions_per_vote,
+						last_locked_emissions_per_vb: $state.locked_emissions_per_vb, 
+						last_liquid_emissions_per_vb: $state.liquid_emissions_per_vb,
+					};
 					$bNewUser = !$user.unlock_date;
 					$update_user($user);
 

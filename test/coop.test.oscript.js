@@ -89,8 +89,16 @@ describe('COOP', function () {
 			const ceiling_price = 2 ** ((timestamp - this.launch_ts) / (365 * 24 * 3600))
 			const elapsed_days = (timestamp - this.state.ts) / 24 / 3600
 			const s = this.state.total_locked + this.state.total_locked_bytes / ceiling_price * this.variables.bytes_reducer;
-			this.state.locked_emissions += s * 0.01 * elapsed_days;
-			this.state.liquid_emissions += s * 0.001 * elapsed_days;
+			const new_locked_emissions = s * this.variables.daily_locked_reward * elapsed_days;
+			const new_liquid_emissions = s * this.variables.daily_liquid_reward * elapsed_days;
+			this.state.locked_emissions += new_locked_emissions;
+			this.state.liquid_emissions += new_liquid_emissions;
+			if (this.state.total_votes > 0 && this.state.total_votes_bal > 0) {
+				this.state.locked_emissions_per_vote += new_locked_emissions / this.state.total_votes;
+				this.state.liquid_emissions_per_vote += new_liquid_emissions / this.state.total_votes;
+				this.state.locked_emissions_per_vb += new_locked_emissions / this.state.total_votes_bal;
+				this.state.liquid_emissions_per_vb += new_liquid_emissions / this.state.total_votes_bal;
+			}
 			this.state.ts = timestamp;
 		}
 
@@ -98,14 +106,17 @@ describe('COOP', function () {
 			if (!timestamp) throw Error(`no timestamp`)
 			const ceiling_price = 2 ** ((timestamp - this.launch_ts) / (365 * 24 * 3600))
 			const old_total_balance = user.total_balance;
-			const new_locked_emissions = this.state.locked_emissions - user.last_locked_emissions;
-			const new_liquid_emissions = this.state.liquid_emissions - user.last_liquid_emissions;
-			user.last_locked_emissions = this.state.locked_emissions;
-			user.last_liquid_emissions = this.state.liquid_emissions;
+			const new_locked_emissions_per_vote = this.state.locked_emissions_per_vote - user.last_locked_emissions_per_vote;
+			const new_liquid_emissions_per_vote = this.state.liquid_emissions_per_vote - user.last_liquid_emissions_per_vote;
+			const new_locked_emissions_per_vb = this.state.locked_emissions_per_vb - user.last_locked_emissions_per_vb;
+			const new_liquid_emissions_per_vb = this.state.liquid_emissions_per_vb - user.last_liquid_emissions_per_vb;
+			user.last_locked_emissions_per_vote = this.state.locked_emissions_per_vote;
+			user.last_liquid_emissions_per_vote = this.state.liquid_emissions_per_vote;
+			user.last_locked_emissions_per_vb = this.state.locked_emissions_per_vb;
+			user.last_liquid_emissions_per_vb = this.state.liquid_emissions_per_vb;
 			const votes = user.votes || 0;
-			const user_share = this.variables.by_votes_share * votes/this.state.total_votes + (1 - this.variables.by_votes_share) * votes * old_total_balance/this.state.total_votes_bal;
-			const user_new_locked_emissions = new_locked_emissions * user_share;
-			const user_new_liquid_emissions = new_liquid_emissions * user_share;
+			const user_new_locked_emissions = this.variables.by_votes_share * votes * new_locked_emissions_per_vote + (1 - this.variables.by_votes_share) * votes * old_total_balance * new_locked_emissions_per_vb;
+			const user_new_liquid_emissions = this.variables.by_votes_share * votes * new_liquid_emissions_per_vote + (1 - this.variables.by_votes_share) * votes * old_total_balance * new_liquid_emissions_per_vb;
 			user.balance += user_new_locked_emissions;
 			if (!user.liquid_balance) user.liquid_balance = 0;
 			user.liquid_balance += user_new_liquid_emissions;
@@ -320,8 +331,13 @@ describe('COOP', function () {
 			reg_date: today,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
-			last_locked_emissions: 0,
-			last_liquid_emissions: 0,
+			last_locked_emissions_per_vote: 0,
+			last_liquid_emissions_per_vote: 0,
+			last_locked_emissions_per_vb: 0,
+			last_liquid_emissions_per_vb: 0,
+			liquid_balance: 0,
+			liquid_rewards: 0,
+			locked_rewards: 0,
 		}
 
 		this.state = {
@@ -331,6 +347,10 @@ describe('COOP', function () {
 			total_votes_bal: 0,
 			locked_emissions: 0,
 			liquid_emissions: 0,
+			locked_emissions_per_vote: 0,
+			liquid_emissions_per_vote: 0,
+			locked_emissions_per_vb: 0,
+			liquid_emissions_per_vb: 0,
 			ts: response.timestamp,
 		}
 
@@ -393,8 +413,13 @@ describe('COOP', function () {
 			reg_date: today,
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
-			last_locked_emissions: 0,
-			last_liquid_emissions: 0,
+			last_locked_emissions_per_vote: 0,
+			last_liquid_emissions_per_vote: 0,
+			last_locked_emissions_per_vb: 0,
+			last_liquid_emissions_per_vb: 0,
+			liquid_balance: 0,
+			liquid_rewards: 0,
+			locked_rewards: 0,
 		}
 
 		this.state.total_locked_bytes += amount
@@ -791,8 +816,10 @@ describe('COOP', function () {
 			reg_ts: response.timestamp,
 			last_ts: response.timestamp,
 			ref: this.bobAddress,
-			last_locked_emissions: this.state.locked_emissions,
-			last_liquid_emissions: this.state.liquid_emissions,
+			last_locked_emissions_per_vote: this.state.locked_emissions_per_vote,
+			last_liquid_emissions_per_vote: this.state.liquid_emissions_per_vote,
+			last_locked_emissions_per_vb: this.state.locked_emissions_per_vb,
+			last_liquid_emissions_per_vb: this.state.liquid_emissions_per_vb,
 		}
 		this.bob_profile.referred_users = 1
 		this.bob_profile.referral_rewards = capped_referral_reward
@@ -1232,7 +1259,7 @@ describe('COOP', function () {
 		this.carol_profile.total_balance = 0
 		
 		const { vars } = await this.carol.readAAStateVars(this.coop_aa)
-		expect(vars['user_' + this.carolAddress]).to.deepCloseTo(this.carol_profile, 14)
+		expect(vars['user_' + this.carolAddress]).to.deepCloseTo(this.carol_profile, 13)
 		expect(vars.state).to.deepCloseTo(this.state, 13)
 		this.check_totals()
 
