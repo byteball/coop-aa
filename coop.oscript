@@ -3,7 +3,7 @@
 	doc_url: "https://coop.obyte.org/coop.json",
 	getters: `{
 
-		/* nonce: 135510 */
+		/* nonce: 1945633 */
 
 		$year = 31536000; // 365 * 24 * 3600;
 
@@ -358,18 +358,18 @@
 							$votes = $sqrt_bal * $strength;
 							$self_votes = $sqrt_bal * 3;
 
-							$add_vote = ($u, $address, $new_votes) => {
+							$add_vote = ($u, $address, $new_votes, $s) => {
 								$prev_vote = var['vote_'||trigger.address||'_'||$address];
 								$delta_votes = $new_votes - $prev_vote.votes;
-								var['vote_'||trigger.address||'_'||$address] = $new_votes ? {votes: $new_votes, ts: timestamp} : false;
+								var['vote_'||trigger.address||'_'||$address] = $new_votes ? {votes: $new_votes, strength: $s, ts: timestamp} : false;
 								$u.votes = $u.votes + $delta_votes;
 								var['user_'||$address] = $u;
 								$state.total_votes = $state.total_votes + $delta_votes;
 								$state.total_votes_bal = $state.total_votes_bal + $delta_votes * $u.total_balance;
 							};
 
-							$add_vote($for_user, $for, $votes);
-							$add_vote($user, trigger.address, $self_votes);
+							$add_vote($for_user, $for, $votes, $strength);
+							$add_vote($user, trigger.address, $self_votes, 3);
 
 							response['message'] = 'Voted';
 							response['event'] = json_stringify({type: 'vote', address: trigger.address, for: $for, strength: $strength, votes: $votes, total_balance: $user.total_balance, for_total_balance: $for_user.total_balance});

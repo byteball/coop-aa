@@ -524,8 +524,8 @@ describe('COOP', function () {
 		this.state.total_votes_bal = alice_votes * this.alice_profile.total_balance + bob_votes * this.bob_profile.total_balance
 
 		const { vars } = await this.alice.readAAStateVars(this.coop_aa)
-		expect(vars['vote_' + this.aliceAddress + '_' + this.bobAddress]).to.deepCloseTo({ votes: bob_votes, ts: response.timestamp }, 14)
-		expect(vars['vote_' + this.aliceAddress + '_' + this.aliceAddress]).to.deepCloseTo({ votes: alice_votes, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.aliceAddress + '_' + this.bobAddress]).to.deepCloseTo({ votes: bob_votes, strength: strength, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.aliceAddress + '_' + this.aliceAddress]).to.deepCloseTo({ votes: alice_votes, strength: 3, ts: response.timestamp }, 14)
 		expect(vars['user_' + this.aliceAddress]).to.deepCloseTo(this.alice_profile, 14)
 		expect(vars['user_' + this.bobAddress]).to.deepCloseTo(this.bob_profile, 14)
 		expect(vars.state).to.deepCloseTo(this.state, 14)
@@ -575,8 +575,8 @@ describe('COOP', function () {
 		this.state.total_votes_bal = alice_votes * this.alice_profile.total_balance + bob_votes * this.bob_profile.total_balance
 
 		const { vars } = await this.alice.readAAStateVars(this.coop_aa)
-		expect(vars['vote_' + this.aliceAddress + '_' + this.bobAddress]).to.deepCloseTo({ votes: bob_votes, ts: response.timestamp }, 14)
-		expect(vars['vote_' + this.aliceAddress + '_' + this.aliceAddress]).to.deepCloseTo({ votes: alice_votes, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.aliceAddress + '_' + this.bobAddress]).to.deepCloseTo({ votes: bob_votes, strength: strength, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.aliceAddress + '_' + this.aliceAddress]).to.deepCloseTo({ votes: alice_votes, strength: 3, ts: response.timestamp }, 14)
 		expect(vars['user_' + this.aliceAddress]).to.deepCloseTo(this.alice_profile, 14)
 		expect(vars['user_' + this.bobAddress]).to.deepCloseTo(this.bob_profile, 14)
 		expect(vars.state).to.deepCloseTo(this.state, 13)
@@ -890,8 +890,8 @@ describe('COOP', function () {
 		this.state.total_votes_bal += carol_votes * this.carol_profile.total_balance + alice_votes * this.alice_profile.total_balance
 
 		const { vars } = await this.carol.readAAStateVars(this.coop_aa)
-		expect(vars['vote_' + this.carolAddress + '_' + this.carolAddress]).to.deepCloseTo({ votes: carol_votes, ts: response.timestamp }, 14)
-		expect(vars['vote_' + this.carolAddress + '_' + this.aliceAddress]).to.deepCloseTo({ votes: alice_votes, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.carolAddress + '_' + this.carolAddress]).to.deepCloseTo({ votes: carol_votes, strength: 3, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.carolAddress + '_' + this.aliceAddress]).to.deepCloseTo({ votes: alice_votes, strength: strength, ts: response.timestamp }, 14)
 		expect(vars['user_' + this.aliceAddress]).to.deepCloseTo(this.alice_profile, 14)
 		expect(vars['user_' + this.carolAddress]).to.deepCloseTo(this.carol_profile, 14)
 		expect(vars.state).to.deepCloseTo(this.state, 13)
@@ -947,8 +947,8 @@ describe('COOP', function () {
 
 		const { vars } = await this.bob.readAAStateVars(this.coop_aa)
 		expect(vars['vote_' + this.aliceAddress + '_' + this.bobAddress]).to.be.undefined
-		expect(vars['vote_' + this.bobAddress + '_' + this.bobAddress]).to.deepCloseTo({ votes: bob_votes, ts: response.timestamp }, 14)
-		expect(vars['vote_' + this.bobAddress + '_' + this.carolAddress]).to.deepCloseTo({ votes: carol_votes, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.bobAddress + '_' + this.bobAddress]).to.deepCloseTo({ votes: bob_votes, strength: 3, ts: response.timestamp }, 14)
+		expect(vars['vote_' + this.bobAddress + '_' + this.carolAddress]).to.deepCloseTo({ votes: carol_votes, strength: strength, ts: response.timestamp }, 14)
 		expect(vars['user_' + this.carolAddress]).to.deepCloseTo(this.carol_profile, 14)
 		expect(vars['user_' + this.bobAddress]).to.deepCloseTo(this.bob_profile, 14)
 		expect(vars.state).to.deepCloseTo(this.state, 13)
