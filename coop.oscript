@@ -3,7 +3,7 @@
 	doc_url: "https://coop.obyte.org/coop.json",
 	getters: `{
 
-		/* nonce: 1945633 */
+		/* nonce: 980096 */
 
 		$year = 31536000; // 365 * 24 * 3600;
 
@@ -484,24 +484,16 @@
 			},
 
 
-			// replace bytes with COOP or vice versa
+			// replace bytes with COOP
 			{
-				if: `{trigger.data.replace AND ($received_amount > 0 OR $received_bytes_amount > 0)}`,
+				if: `{trigger.data.replace AND $received_amount > 0}`,
 				init: `{
-					require(!($received_amount AND $received_bytes_amount), "don't send both tokens");
+					require($received_bytes_amount == 0, "don't send bytes");
 					$user = var['user_'||trigger.address];
 					require($user, "you are not a user");
 					$update_user($user);
-					if ($received_amount){
-						$out_bytes_amount = floor($received_amount * $ceiling_price);
-						require($user.bytes_balance >= $out_bytes_amount, "not enough bytes locked");
-						$out_amount = 0;
-					}
-					else{ // received bytes
-						$out_amount = floor($received_bytes_amount / $ceiling_price);
-						require($user.balance >= $out_amount, "not enough COOP locked");
-						$out_bytes_amount = 0;
-					}
+					$out_bytes_amount = floor($received_amount * $ceiling_price);
+					require($user.bytes_balance >= $out_bytes_amount, "not enough bytes locked");
 				}`,
 				messages: [
 					{
@@ -512,22 +504,15 @@
 						}
 					},
 					{
-						app: 'payment',
-						payload: {
-							asset: "{$asset}",
-							outputs: [{address: "{trigger.address}", amount: "{$out_amount}"}],
-						}
-					},
-					{
 						app: 'state',
 						state: `{
-							$state.total_locked = $state.total_locked + $received_amount - $out_amount;
-							$state.total_locked_bytes = $state.total_locked_bytes + $received_bytes_amount - $out_bytes_amount;
+							$state.total_locked = $state.total_locked + $received_amount;
+							$state.total_locked_bytes = $state.total_locked_bytes - $out_bytes_amount;
 							
-							$user.balance = $user.balance + $received_amount - $out_amount;
-							$user.bytes_balance = $user.bytes_balance + $received_bytes_amount - $out_bytes_amount;
+							$user.balance = $user.balance + $received_amount;
+							$user.bytes_balance = $user.bytes_balance - $out_bytes_amount;
 							
-							// total balance might change due to rounding
+							// total balance might change due to rounding and reducer
 							$new_total_balance = $user.balance + $user.bytes_balance/$ceiling_price * $variables.bytes_reducer;
 							$delta_total_balance = $new_total_balance - $user.total_balance;
 							$user.total_balance = $new_total_balance;
@@ -538,7 +523,7 @@
 							var['state'] = $state;
 
 							response['message'] = 'Replaced';
-							response['event'] = json_stringify({type: 'replace', address: trigger.address, received_amount: $received_amount, received_bytes_amount: $received_bytes_amount, out_amount: $out_amount, out_bytes_amount: $out_bytes_amount, total_balance: $user.total_balance});
+							response['event'] = json_stringify({type: 'replace', address: trigger.address, received_amount: $received_amount, out_bytes_amount: $out_bytes_amount, total_balance: $user.total_balance});
 						}`
 					}
 				]

@@ -956,56 +956,6 @@ describe('COOP', function () {
 	})
 
 
-	it('Carol replaces some COOP with Bytes', async () => {
-		const timestamp = await this.timetravel('1d')
-		this.update_emissions(timestamp)
-		this.update_user(this.carol_profile, timestamp)
-		this.check_totals()
-		const ceiling_price = 2 ** ((timestamp - this.launch_ts) / 365 / 24 / 3600)
-		const bytes_amount = 1e6
-		const out_amount = Math.floor(bytes_amount / ceiling_price)
-
-		const { unit, error } = await this.carol.triggerAaWithData({
-			toAddress: this.coop_aa,
-			amount: 10000 + bytes_amount,
-			data: {
-				replace: 1,
-			},
-		})
-		expect(error).to.be.null
-		expect(unit).to.be.validUnit
-
-		const { response } = await this.network.getAaResponseToUnitOnNode(this.carol, unit)
-		expect(response.response.error).to.be.undefined
-		expect(response.bounced).to.be.false
-		expect(response.response_unit).to.be.validUnit
-
-		this.carol_profile.balance -= out_amount
-		this.carol_profile.bytes_balance += bytes_amount
-		const new_total_balance = this.carol_profile.balance + this.carol_profile.bytes_balance / ceiling_price * this.variables.bytes_reducer
-		const delta_total_balance = new_total_balance - this.carol_profile.total_balance
-		this.carol_profile.total_balance = new_total_balance
-		this.state.total_locked -= out_amount
-		this.state.total_locked_bytes += bytes_amount
-		this.state.total_votes_bal += delta_total_balance * (this.carol_profile.votes || 0)
-		
-		const { vars } = await this.carol.readAAStateVars(this.coop_aa)
-		expect(vars['user_' + this.carolAddress]).to.deepCloseTo(this.carol_profile, 13)
-		expect(vars.state).to.deepCloseTo(this.state, 13)
-		this.check_totals()
-
-		const { unitObj } = await this.carol.getUnitInfo({ unit: response.response_unit })
-		console.log(Utils.getExternalPayments(unitObj))
-		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
-			{
-				asset: this.asset,
-				address: this.carolAddress,
-				amount: out_amount,
-			},
-		])
-	})
-
-
 	it("Carol votes for changing the by-votes share", async () => {
 		const timestamp = await this.timetravel('0d')
 		const ceiling_price = 2 ** ((timestamp - this.launch_ts) / 365 / 24 / 3600)
@@ -1239,10 +1189,6 @@ describe('COOP', function () {
 				asset: this.asset,
 				address: this.carolAddress,
 				amount: Math.floor(this.carol_profile.balance + this.carol_profile.liquid_balance),
-			},
-			{
-				address: this.carolAddress,
-				amount: this.carol_profile.bytes_balance,
 			},
 			{
 				address: this.governance_aa,
