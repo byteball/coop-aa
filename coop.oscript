@@ -3,7 +3,7 @@
 	doc_url: "https://coop.obyte.org/coop.json",
 	getters: `{
 
-		/* nonce: 980096 */
+		/* nonce: 443737 */
 
 		$year = 31536000; // 365 * 24 * 3600;
 
@@ -286,7 +286,7 @@
 
 							// fixed referral rewards for the 1st deposit
 							if ($bNewUser AND $user.ref AND $bReferrerEligible){
-								$capped_referral_reward = min($variables.referral_reward, floor($user.total_balance));
+								$capped_referral_reward = floor(min($variables.referral_reward, $user.total_balance, $referrer.total_balance));
 								$user.balance = $user.balance + $capped_referral_reward;
 								$user.total_balance = $user.total_balance + $capped_referral_reward;
 								$referrer.balance = $referrer.balance + $capped_referral_reward;
