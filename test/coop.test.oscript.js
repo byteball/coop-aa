@@ -216,7 +216,7 @@ describe('COOP', function () {
 		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
 		expect(response.bounced).to.be.true
 		expect(response.response_unit).to.be.validUnit
-		expect(response.response.error).to.eq("your address must be attested on a messaging service")
+		expect(response.response.error.message).to.eq("your address must be attested on a messaging service")
 	})
 
 	
@@ -255,7 +255,7 @@ describe('COOP', function () {
 		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
 		expect(response.bounced).to.be.true
 		expect(response.response_unit).to.be.validUnit
-		expect(response.response.error).to.eq(`your address must be real-name attested or you should deposit at least ${this.variables.min_balance_instead_of_real_name / 1e9} COOP`)
+		expect(response.response.error.message).to.eq(`your address must be real-name attested or you should deposit at least ${this.variables.min_balance_instead_of_real_name / 1e9} COOP`)
 	})
 
 
@@ -294,7 +294,7 @@ describe('COOP', function () {
 		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
 		expect(response.bounced).to.be.true
 		expect(response.response_unit).to.be.validUnit
-		expect(response.response.error).to.eq("referrer doesn't exist")
+		expect(response.response.error.message).to.eq("referrer doesn't exist")
 	})
 
 
@@ -1156,7 +1156,7 @@ describe('COOP', function () {
 		expect(unit).to.be.validUnit
 
 		const { response } = await this.network.getAaResponseToUnitOnNode(this.carol, unit)
-		expect(response.response.error).to.be.eq(`your balance unlocks on ${this.carol_profile.unlock_date}`)
+		expect(response.response.error.message).to.be.eq(`your balance unlocks on ${this.carol_profile.unlock_date}`)
 		expect(response.bounced).to.be.true
 		expect(response.response_unit).to.be.null
 	})
