@@ -438,6 +438,7 @@
 					require($user, "you are not a user");
 					require(timestamp_to_string(timestamp, 'date') >= $user.unlock_date, "your balance unlocks on "||$user.unlock_date);
 					require($user.balance > 0 OR $user.bytes_balance > 0, "you have no balance");
+					$withdraw_amount = min($user.balance, 4e15);
 				}`,
 				messages: [
 					{
@@ -454,7 +455,7 @@
 						app: 'payment',
 						payload: {
 							asset: "{$asset}",
-							outputs: [{address: "{trigger.address}", amount: "{floor($user.balance + $user.liquid_balance)}"}],
+							outputs: [{address: "{trigger.address}", amount: "{floor($withdraw_amount + $user.liquid_balance)}"}],
 						}
 					},
 					{
@@ -468,14 +469,14 @@
 						app: 'state',
 						state: `{
 							response['message'] = 'Withdrawn';
-							response['event'] = json_stringify({type: 'withdrawal', address: trigger.address, balance: $user.balance, bytes_balance: $user.bytes_balance, total_balance: 0});
-							$state.total_locked = $state.total_locked - $user.balance;
+							response['event'] = json_stringify({type: 'withdrawal', address: trigger.address, amount: $withdraw_amount, bytes_amount: $user.bytes_balance, total_balance: $user.balance - $withdraw_amount});
+							$state.total_locked = $state.total_locked - $withdraw_amount;
 							$state.total_locked_bytes = $state.total_locked_bytes - $user.bytes_balance;
-							$state.total_votes_bal = $state.total_votes_bal - $user.total_balance * $user.votes;
-							$user.balance = 0;
+							$state.total_votes_bal = $state.total_votes_bal - ($withdraw_amount + $user.bytes_balance/$ceiling_price * $variables.bytes_reducer) * $user.votes;
+							$user.balance = $user.balance - $withdraw_amount;
 							$user.bytes_balance = 0;
 							$user.liquid_balance = 0;
-							$user.total_balance = 0;
+							$user.total_balance = $user.balance;
 							var['user_'||trigger.address] = $user;
 							var['state'] = $state;
 						}`
