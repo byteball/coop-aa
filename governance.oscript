@@ -119,6 +119,8 @@
 							require(typeof($value) == 'number' AND $value >= 0, "must be a nonnegative number");
 							if ($name == 'referral_reward' OR $name == 'min_balance_instead_of_real_name')
 								require(is_integer($value), "value must be integer");
+							else if ($name == 'daily_locked_reward' OR $name == 'daily_liquid_reward')
+								require($value <= 0.1, "value must be <= 0.1");
 							else
 								require($value <= 1, "value must be <= 1");
 						}

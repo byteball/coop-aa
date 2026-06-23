@@ -3,7 +3,7 @@
 	doc_url: "https://coop.obyte.org/coop.json",
 	getters: `{
 
-		/* nonce: 443737 */
+		/* nonce: 970091 */
 
 		$year = 31536000; // 365 * 24 * 3600;
 
@@ -121,7 +121,7 @@
 
 		$update_emissions();
 
-		$governance_base_aa = '44WOODO7QH47C25PW6IMR5W5TDU56ZNA';
+		$governance_base_aa = 'NW3CQENARJZCYK5BQKDBRTDFPVPPMPXT';
 
 	}`,
 	messages: {
