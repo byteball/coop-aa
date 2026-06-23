@@ -3,7 +3,7 @@
 	doc_url: "https://coop.obyte.org/coop.json",
 	getters: `{
 
-		/* nonce: 970091 */
+		/* nonce: 547563 */
 
 		$year = 31536000; // 365 * 24 * 3600;
 
@@ -468,12 +468,13 @@
 					{
 						app: 'state',
 						state: `{
+							$new_balance = $user.balance - $withdraw_amount;
 							response['message'] = 'Withdrawn';
-							response['event'] = json_stringify({type: 'withdrawal', address: trigger.address, amount: $withdraw_amount, bytes_amount: $user.bytes_balance, total_balance: $user.balance - $withdraw_amount});
+							response['event'] = json_stringify({type: 'withdrawal', address: trigger.address, amount: $withdraw_amount, bytes_amount: $user.bytes_balance, total_balance: $new_balance});
 							$state.total_locked = $state.total_locked - $withdraw_amount;
 							$state.total_locked_bytes = $state.total_locked_bytes - $user.bytes_balance;
-							$state.total_votes_bal = $state.total_votes_bal - ($withdraw_amount + $user.bytes_balance/$ceiling_price * $variables.bytes_reducer) * $user.votes;
-							$user.balance = $user.balance - $withdraw_amount;
+							$state.total_votes_bal = $state.total_votes_bal - ($user.total_balance - $new_balance) * $user.votes;
+							$user.balance = $new_balance;
 							$user.bytes_balance = 0;
 							$user.liquid_balance = 0;
 							$user.total_balance = $user.balance;
